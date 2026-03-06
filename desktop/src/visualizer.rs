@@ -1,4 +1,4 @@
-use egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, pos2};
+use egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, pos2, epaint::{Mesh, Vertex}};
 use player_core::audio::viz_source::SharedSamples;
 use player_core::config::AppConfig;
 use player_core::viz::spectrum::{log_frequency_bands, smooth_spatial, spectrum};
@@ -19,7 +19,7 @@ pub struct SpectrumState {
 impl SpectrumVisualizer {
     pub fn new(config: Arc<Mutex<AppConfig>>) -> Self {
         let bars = config.lock().unwrap().spectrum_bars_quantity;
-        
+
         Self {
             state: SpectrumState {
                 smooth: vec![0.0; bars],
@@ -37,80 +37,209 @@ impl SpectrumVisualizer {
         g: u8,
         b: u8,
     ) {
-        let (bands_quantity, smooth_enabled, fft_size) = {
+
+        let (bands_quantity, smooth_enabled, fft_size, spectrum_mode_line, old_style) = {
             let cfg = self.config.lock().unwrap();
             (
                 cfg.spectrum_bars_quantity,
                 cfg.spectrum_smooth,
                 cfg.fft_size,
+                cfg.line_mode,
+                cfg.old_style,
             )
         };
+
         if self.state.smooth.len() != bands_quantity {
             self.state = SpectrumState {
                 smooth: vec![0.0; bands_quantity],
                 max_energy: 0.01,
             };
         }
-        // println!("CONFIG PTR VIS: {:p}", Arc::as_ptr(&self.config));
-        let raw = spectrum(samples.clone(), fft_size);
-        let mut bands =
-            log_frequency_bands(&raw, bands_quantity, 44100.0, fft_size, 20.0, 8_000.0);
 
-        // --- suavizado ---
-        let alpha = 0.65;
-        if smooth_enabled {
-            bands = smooth_spatial(&bands);
-        }
+        if old_style {
+            let raw = spectrum(samples.clone(), fft_size);
+            let mut bands =
+                log_frequency_bands(&raw, bands_quantity, 44100.0, fft_size, 20.0, 8_000.0);
 
-        for (s, &v) in self.state.smooth.iter_mut().zip(bands.iter()) {
-            *s = *s * alpha + v * (1.0 - alpha);
-        }
+            // --- suavizado ---
+            let alpha = 0.65;
+            if smooth_enabled {
+                bands = smooth_spatial(&bands);
+            }
 
-        let frame_max = self.state.smooth.iter().copied().fold(0.0, f32::max);
+            for (s, &v) in self.state.smooth.iter_mut().zip(bands.iter()) {
+                *s = *s * alpha + v * (1.0 - alpha);
+            }
 
-        let attack = 0.25;
-        let release = 0.02;
+            let frame_max = self.state.smooth.iter().copied().fold(0.0, f32::max);
 
-        if frame_max > self.state.max_energy {
-            self.state.max_energy = self.state.max_energy * (1.0 - attack) + frame_max * attack;
+            let attack = 0.25;
+            let release = 0.02;
+
+            if frame_max > self.state.max_energy {
+                self.state.max_energy = self.state.max_energy * (1.0 - attack) + frame_max * attack;
+            } else {
+                self.state.max_energy =
+                    self.state.max_energy * (1.0 - release) + frame_max * release;
+            }
+            let size = egui::vec2(ui.available_width(), ui.available_height());
+            let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+
+            let painter = ui.painter_at(rect).with_clip_rect(rect);
+
+            painter.rect_filled(rect, 6.0, Color32::TRANSPARENT);
+            let bars = self.state.smooth.len();
+            let bar_width = rect.width() / bars as f32;
+
+            let min_h = 2.0;
+
+            for (i, v) in self.state.smooth.iter().enumerate() {
+                let norm = v / self.state.max_energy.max(1e-6);
+
+                let h = (norm.clamp(0.0, 1.7).powf(0.7) * rect.height() * 1.0).max(min_h);
+
+                let bar_rect = egui::Rect::from_min_size(
+                    egui::pos2(rect.left() + i as f32 * bar_width, rect.bottom() - h),
+                    egui::vec2(bar_width - 1.0, h),
+                );
+
+                let slant = 0.5;
+
+                let points = vec![
+                    Pos2::new(bar_rect.left(), bar_rect.bottom()),
+                    Pos2::new(bar_rect.right(), bar_rect.bottom()),
+                    Pos2::new(bar_rect.right(), bar_rect.top() + slant),
+                    Pos2::new(bar_rect.left(), bar_rect.top() - slant),
+                ];
+
+                painter.add(Shape::convex_polygon(
+                    points,
+                    egui::Color32::from_rgb(r, g, b),
+                    egui::Stroke::NONE,
+                ));
+            }
         } else {
-            self.state.max_energy = self.state.max_energy * (1.0 - release) + frame_max * release;
-        }
-        let size = egui::vec2(ui.available_width(), ui.available_height());
-        let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+            let raw = spectrum(samples.clone(), fft_size);
 
-        let painter = ui.painter_at(rect).with_clip_rect(rect);
+            let mut bands =
+                log_frequency_bands(&raw, bands_quantity, 44100.0, fft_size, 20.0, 8000.0);
 
-        painter.rect_filled(rect, 6.0, Color32::TRANSPARENT);
-        let bars = self.state.smooth.len();
-        let bar_width = rect.width() / bars as f32;
+            let alpha = 0.65;
+            if smooth_enabled {
+                bands = smooth_spatial(&bands);
+            }
 
-        let min_h = 2.0;
+            for (s, &v) in self.state.smooth.iter_mut().zip(bands.iter()) {
+                *s = *s * alpha + v * (1.0 - alpha);
+            }
 
-        for (i, v) in self.state.smooth.iter().enumerate() {
-            let norm = v / self.state.max_energy.max(1e-6);
+            let frame_max = self.state.smooth.iter().copied().fold(0.0, f32::max);
 
-            let h = (norm.clamp(0.0, 1.7).powf(0.7) * rect.height() * 1.0).max(min_h);
+            let attack = 0.25;
+            let release = 0.02;
 
-            let bar_rect = egui::Rect::from_min_size(
-                egui::pos2(rect.left() + i as f32 * bar_width, rect.bottom() - h),
-                egui::vec2(bar_width - 1.0, h),
-            );
+            if frame_max > self.state.max_energy {
+                self.state.max_energy = self.state.max_energy * (1.0 - attack) + frame_max * attack;
+            } else {
+                self.state.max_energy =
+                    self.state.max_energy * (1.0 - release) + frame_max * release;
+            }
 
-            let slant = 0.5;
+            let size = egui::vec2(ui.available_width(), ui.available_height());
+            let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
 
-            let points = vec![
-                Pos2::new(bar_rect.left(), bar_rect.bottom()), 
-                Pos2::new(bar_rect.right(), bar_rect.bottom()),
-                Pos2::new(bar_rect.right(), bar_rect.top() + slant),
-                Pos2::new(bar_rect.left(), bar_rect.top() - slant),
-            ];
+            let painter = ui.painter_at(rect).with_clip_rect(rect);
 
-            painter.add(Shape::convex_polygon(
-                points,
-                egui::Color32::from_rgb(r, g, b),
-                egui::Stroke::NONE,
-            ));
+            painter.rect_filled(rect, 6.0, Color32::TRANSPARENT);
+
+            let bars = self.state.smooth.len();
+            let bar_width = rect.width() / bars as f32;
+
+            let min_h = 2.0;
+            if spectrum_mode_line {
+                let mut points: Vec<Pos2> = Vec::with_capacity(bars);
+
+                for (i, v) in self.state.smooth.iter().enumerate() {
+                    let norm = v / self.state.max_energy.max(1e-6);
+
+                    let h = (norm.clamp(0.0, 1.7).powf(0.7) * rect.height()).max(min_h);
+
+                    let x = rect.left() + i as f32 * bar_width;
+                    let y = rect.bottom() - h;
+
+                    points.push(Pos2::new(x, y));
+                }
+
+                for i in 1..points.len() {
+                    let norm = self.state.smooth[i] / self.state.max_energy.max(1e-6);
+                    let t = norm.clamp(0.0, 1.0);
+
+                    let color = Color32::from_rgb(
+                        (r as f32 * t * 1.3) as u8,
+                        (g as f32 * (0.6 + t * 0.4)) as u8,
+                        (b as f32 * (1.0 - t * 0.4)) as u8,
+                    );
+
+                    painter.line_segment([points[i - 1], points[i]], egui::Stroke::new(2.0, color));
+                }
+
+                return;
+            }
+
+            let mut mesh = Mesh::default();
+            let base_color = ui.visuals().text_color(); 
+            let peak_color = ui.visuals().widgets.active.bg_fill.linear_multiply(1.2); 
+            for (i, v) in self.state.smooth.iter().enumerate() {
+                let norm = v / self.state.max_energy.max(1e-6);
+                let t = norm.clamp(0.0, 1.0);
+
+                let h = (t.powf(0.7) * rect.height()).max(min_h);
+
+                let x0 = rect.left() + i as f32 * bar_width;
+                let x1 = x0 + bar_width;
+
+                let y0 = rect.bottom();
+                let y1 = rect.bottom() - h;
+
+                let color = lerp_color(base_color, peak_color, t);
+
+                let base = mesh.vertices.len() as u32;
+
+                mesh.vertices.push(Vertex {
+                    pos: Pos2::new(x0, y0),
+                    uv: Default::default(),
+                    color,
+                });
+
+                mesh.vertices.push(Vertex {
+                    pos: Pos2::new(x1, y0),
+                    uv: Default::default(),
+                    color,
+                });
+
+                mesh.vertices.push(Vertex {
+                    pos: Pos2::new(x1, y1),
+                    uv: Default::default(),
+                    color,
+                });
+
+                mesh.vertices.push(Vertex {
+                    pos: Pos2::new(x0, y1),
+                    uv: Default::default(),
+                    color,
+                });
+
+                mesh.indices.extend_from_slice(&[
+                    base,
+                    base + 1,
+                    base + 2,
+                    base,
+                    base + 2,
+                    base + 3,
+                ]);
+            }
+
+            painter.add(Shape::mesh(mesh));
         }
     }
 }
@@ -182,4 +311,14 @@ pub fn draw_waveform_raw(
 
         last = Some(p);
     }
+}
+
+fn lerp_color(a: egui::Color32, b: egui::Color32, t: f32) -> egui::Color32 {
+    let t = t.clamp(0.0, 1.0);
+
+    let r = a.r() as f32 + (b.r() as f32 - a.r() as f32) * t;
+    let g = a.g() as f32 + (b.g() as f32 - a.g() as f32) * t;
+    let b_ = a.b() as f32 + (b.b() as f32 - a.b() as f32) * t;
+
+    egui::Color32::from_rgb(r as u8, g as u8, b_ as u8)
 }

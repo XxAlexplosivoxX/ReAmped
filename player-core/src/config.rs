@@ -17,6 +17,8 @@ pub struct AppConfig {
     pub theme: ThemeConfig,
     pub fft_size: usize,
     pub spectrum_smooth: bool,
+    pub line_mode: bool,
+    pub old_style: bool,
     pub spectrum_bars_quantity: usize,
     pub music_dirs: Vec<std::path::PathBuf>,
 }
@@ -39,8 +41,10 @@ impl Default for AppConfig {
                 base_scale: 1.0,
                 pallete_custom: vec![[36, 36, 36], [209, 209, 209], [140, 140, 140]],
             },
-            fft_size: 8192,
-            spectrum_bars_quantity: 67,
+            fft_size: 11000,
+            line_mode: false,
+            old_style: false,
+            spectrum_bars_quantity: 250,
             spectrum_smooth: true,
             music_dirs: Vec::new(),
         }

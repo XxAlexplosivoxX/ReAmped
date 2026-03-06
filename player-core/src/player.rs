@@ -64,12 +64,12 @@ fn load_current(
 }
 
 impl Player {
-    pub fn new() -> Self {
+    pub fn new(volume: f32) -> Self {
         let (tx, rx) = channel();
         let samples = Arc::new(Mutex::new(Vec::with_capacity(4096)));
         let state = Arc::new(Mutex::new(PlayerState {
             playing: false,
-            volume: 1.0,
+            volume: volume,
             position: 0.0,
             duration: 0.0,
             current_track: String::from("None"),
