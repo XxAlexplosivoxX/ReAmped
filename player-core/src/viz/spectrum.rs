@@ -41,7 +41,7 @@ pub fn spectrum(samples: Arc<Mutex<Vec<f32>>>, size: usize) -> Vec<f32> {
 pub fn smooth_spatial(input: &[f32]) -> Vec<f32> {
     let mut out = input.to_vec();
 
-    for i in 1..input.len() - input.len()/2 {
+    for i in 1..input.len() - ((input.len()/3) * 2){
         out[i] = input[i - 1] * 0.25
                + input[i]     * 0.5
                + input[i + 1] * 0.25;

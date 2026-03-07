@@ -1,4 +1,8 @@
-use egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, pos2, epaint::{Mesh, Vertex}};
+use egui::{
+    Color32, Painter, Pos2, Rect, Shape, Stroke,
+    epaint::{Mesh, Vertex},
+    pos2,
+};
 use player_core::audio::viz_source::SharedSamples;
 use player_core::config::AppConfig;
 use player_core::viz::spectrum::{log_frequency_bands, smooth_spatial, spectrum};
@@ -37,7 +41,6 @@ impl SpectrumVisualizer {
         g: u8,
         b: u8,
     ) {
-
         let (bands_quantity, smooth_enabled, fft_size, spectrum_mode_line, old_style) = {
             let cfg = self.config.lock().unwrap();
             (
@@ -56,6 +59,13 @@ impl SpectrumVisualizer {
             };
         }
 
+        let base_color = ui.visuals().text_color();
+        let peak_color = ui
+            .visuals()
+            .widgets
+            .noninteractive
+            .weak_bg_fill
+            .linear_multiply(1.2);
         if old_style {
             let raw = spectrum(samples.clone(), fft_size);
             let mut bands =
@@ -155,7 +165,7 @@ impl SpectrumVisualizer {
             let bars = self.state.smooth.len();
             let bar_width = rect.width() / bars as f32;
 
-            let min_h = 2.0;
+            let min_h = 0.5;
             if spectrum_mode_line {
                 let mut points: Vec<Pos2> = Vec::with_capacity(bars);
 
@@ -170,25 +180,31 @@ impl SpectrumVisualizer {
                     points.push(Pos2::new(x, y));
                 }
 
+                let bottom = rect.bottom();
+
                 for i in 1..points.len() {
+                    let p1 = points[i - 1];
+                    let p2 = points[i];
+
                     let norm = self.state.smooth[i] / self.state.max_energy.max(1e-6);
                     let t = norm.clamp(0.0, 1.0);
 
-                    let color = Color32::from_rgb(
-                        (r as f32 * t * 1.3) as u8,
-                        (g as f32 * (0.6 + t * 0.4)) as u8,
-                        (b as f32 * (1.0 - t * 0.4)) as u8,
-                    );
+                    let color = lerp_color(base_color, peak_color, t);
 
-                    painter.line_segment([points[i - 1], points[i]], egui::Stroke::new(2.0, color));
+                    let b1 = egui::pos2(p1.x - 1.4, bottom);
+                    let b2 = egui::pos2(p2.x + 1.4, bottom);
+
+                    painter.add(egui::Shape::convex_polygon(
+                        vec![p1, p2, b2, b1],
+                        color,
+                        egui::Stroke::NONE,
+                    ));
                 }
 
                 return;
             }
 
             let mut mesh = Mesh::default();
-            let base_color = ui.visuals().text_color(); 
-            let peak_color = ui.visuals().widgets.active.bg_fill.linear_multiply(1.2); 
             for (i, v) in self.state.smooth.iter().enumerate() {
                 let norm = v / self.state.max_energy.max(1e-6);
                 let t = norm.clamp(0.0, 1.0);
