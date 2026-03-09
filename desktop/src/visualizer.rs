@@ -12,12 +12,21 @@ use std::sync::{Arc, Mutex};
 pub struct SpectrumVisualizer {
     state: SpectrumState,
     config: Arc<Mutex<AppConfig>>,
+    stripes: BeatStripe,
 }
 
 #[derive(Clone, Debug)]
 pub struct SpectrumState {
     smooth: Vec<f32>,
     max_energy: f32,
+}
+
+#[derive(Clone, Debug)]
+pub struct BeatStripe {
+    current_speed: f32,
+    offset: f32,
+    base_speed: f32,
+    intensity: f32,
 }
 
 impl SpectrumVisualizer {
@@ -28,6 +37,12 @@ impl SpectrumVisualizer {
             state: SpectrumState {
                 smooth: vec![0.0; bars],
                 max_energy: 0.01,
+            },
+            stripes: BeatStripe {
+                current_speed: 120.0,
+                offset: 0.0,
+                base_speed: 120.0,
+                intensity: 0.0,
             },
             config,
         }
@@ -66,8 +81,9 @@ impl SpectrumVisualizer {
             .noninteractive
             .weak_bg_fill
             .linear_multiply(1.2);
+        let raw = spectrum(samples.clone(), fft_size);
+        self.stripes.intensity = energy_all_freq(&self.state.smooth);
         if old_style {
-            let raw = spectrum(samples.clone(), fft_size);
             let mut bands =
                 log_frequency_bands(&raw, bands_quantity, 44100.0, fft_size, 20.0, 8_000.0);
 
@@ -129,8 +145,6 @@ impl SpectrumVisualizer {
                 ));
             }
         } else {
-            let raw = spectrum(samples.clone(), fft_size);
-
             let mut bands =
                 log_frequency_bands(&raw, bands_quantity, 44100.0, fft_size, 20.0, 8000.0);
 
@@ -258,6 +272,81 @@ impl SpectrumVisualizer {
             painter.add(Shape::mesh(mesh));
         }
     }
+    pub fn draw_beat_stripes(&mut self, ui: &mut egui::Ui, color_1: Color32, color_2: Color32) {
+        let rect = ui.available_rect_before_wrap();
+        let painter = ui.painter_at(rect);
+
+        let dt = ui.input(|i| i.unstable_dt);
+        let target_speed = self.stripes.base_speed * self.stripes.intensity;
+
+        self.stripes.current_speed = egui::lerp(self.stripes.current_speed..=target_speed, 0.5);
+        
+        if self.stripes.current_speed > 0.0 {
+            self.stripes.offset += self.stripes.current_speed * dt;
+        }
+
+        let stripe_w = 40.0;
+        let skew = rect.height() * 0.8;
+
+        let mut mesh = Mesh::default();
+
+        let start = -skew;
+        let end = rect.width() + skew;
+
+        let mut i = 0;
+
+        let mut pos = start - (self.stripes.offset % (stripe_w * 2.0));
+
+        while pos < end {
+            let color = if i % 2 == 0 { color_1 } else { color_2 };
+
+            let p0 = Pos2::new(rect.left() + pos, rect.top());
+            let p1 = Pos2::new(rect.left() + pos + stripe_w, rect.top());
+            let p2 = Pos2::new(rect.left() + pos + stripe_w + skew, rect.bottom());
+            let p3 = Pos2::new(rect.left() + pos + skew, rect.bottom());
+
+            let base = mesh.vertices.len() as u32;
+
+            mesh.vertices.push(Vertex {
+                pos: p0,
+                uv: Default::default(),
+                color,
+            });
+            mesh.vertices.push(Vertex {
+                pos: p1,
+                uv: Default::default(),
+                color,
+            });
+            mesh.vertices.push(Vertex {
+                pos: p2,
+                uv: Default::default(),
+                color,
+            });
+            mesh.vertices.push(Vertex {
+                pos: p3,
+                uv: Default::default(),
+                color,
+            });
+
+            mesh.indices
+                .extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+
+            pos += stripe_w;
+            i += 1;
+        }
+
+        painter.add(Shape::mesh(mesh));
+    }
+}
+
+pub fn energy_all_freq(spectrum: &[f32]) -> f32 {
+    let mut energy = 0.0;
+
+    for i in 0..spectrum.len() {
+        energy += spectrum[i];
+    }
+
+    (energy / spectrum.len() as f32) * 2.5
 }
 
 pub fn _draw_waveform(ui: &mut egui::Ui, samples: &[f32], color: egui::Color32) {

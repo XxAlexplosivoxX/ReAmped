@@ -977,7 +977,7 @@ impl eframe::App for PlayerApp {
                 }
             });
 
-            let height = ui.available_height();
+            let height = ui.available_height() - 10.0;
 
             let (rect, _) = ui.allocate_exact_size(
                 egui::vec2(ui.available_width(), height),
@@ -996,6 +996,7 @@ impl eframe::App for PlayerApp {
                 Color32::from_rgb(palette[0][0], palette[0][1], palette[0][2]).gamma_multiply(0.6),
                 Color32::TRANSPARENT,
             );
+            self.visualizer.draw_beat_stripes(ui, accent, text);
             if self.player.is_playing() {
                 ctx.request_repaint();
                 self.state = String::from("status: Playing");
@@ -1292,7 +1293,7 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         vsync: true,
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([532.0, 252.0])
+            .with_inner_size([532.0, 292.0])
             .with_resizable(false)
             .with_decorations(true),
         ..Default::default()
