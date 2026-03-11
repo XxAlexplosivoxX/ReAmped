@@ -20,5 +20,6 @@ pub enum PlayerCommand {
     PlayIndex(usize),
     ReloadCurrent,
     AleatoryFullRandom,
-    SortBy(Options)
+    SortBy(Options),
+    GetPluginsData
 }

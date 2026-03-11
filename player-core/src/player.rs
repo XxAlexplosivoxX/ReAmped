@@ -1,5 +1,6 @@
 use rand::rng;
 use rand::seq::SliceRandom;
+use std::collections::HashMap;
 use std::sync::mpsc::RecvTimeoutError;
 use std::sync::{
     Arc, Mutex,
@@ -33,6 +34,7 @@ pub struct Player {
     tx: Sender<PlayerCommand>,
     pub samples: SharedSamples,
     pub state: Arc<Mutex<PlayerState>>,
+    pub plugins: Arc<Mutex<HashMap<String, f32>>>,
 }
 
 fn load_current(
@@ -82,12 +84,14 @@ impl Player {
             playlist_cpy: Vec::new(),
             playlist_idx: 0,
         }));
+        let plugins = Arc::new(Mutex::new(HashMap::new()));
         thread::spawn({
             let samples = samples.clone();
             let state = state.clone();
-            move || audio_loop(rx, samples, state)
+            let plugins = plugins.clone();
+            move || audio_loop(rx, samples, state, plugins)
         });
-        Self { tx, samples, state }
+        Self { tx, samples, state , plugins }
     }
 
     pub fn send(&self, cmd: PlayerCommand) {
@@ -114,30 +118,34 @@ impl Player {
     pub fn playlist_idx(&self) -> usize {
         self.state.lock().unwrap().playlist_idx.clone()
     }
+
+    pub fn plugins_info(&self) -> Arc<Mutex<HashMap<String, f32>>> {
+        self.plugins.clone()
+    }
 }
 
-fn audio_loop(rx: Receiver<PlayerCommand>, samples: SharedSamples, state: Arc<Mutex<PlayerState>>) {
-    let mut backend = SymphoniaBackend::new(samples);
+fn audio_loop(rx: Receiver<PlayerCommand>, samples: SharedSamples, state: Arc<Mutex<PlayerState>>, plugins: Arc<Mutex<HashMap<String, f32>>>) {
+    let mut backend = SymphoniaBackend::new(samples, plugins.clone());
     let mut playlist: Vec<Track> = Vec::new();
     let mut current_index: usize = 0;
     let mut shuffle = false;
     let mut repeat = false;
     let mut repeat_one = false;
     let mut rng = rng();
-
     let mut shuffled_indices: Vec<usize> = Vec::new();
     let mut shuffle_pos: usize = 0;
-
+    
+    
     loop {
         let playing = state.lock().unwrap().playing;
-
+        
         if playing && backend.finished() {
             if repeat_one {
                 load_current(&mut backend, &playlist, current_index, &state);
                 backend.play();
                 continue;
             }
-
+            
             if shuffle {
                 shuffle_pos += 1;
 
@@ -156,7 +164,7 @@ fn audio_loop(rx: Receiver<PlayerCommand>, samples: SharedSamples, state: Arc<Mu
                 backend.play();
                 continue;
             }
-
+            
             if current_index + 1 < playlist.len() {
                 current_index += 1;
                 load_current(&mut backend, &playlist, current_index, &state);
@@ -169,7 +177,6 @@ fn audio_loop(rx: Receiver<PlayerCommand>, samples: SharedSamples, state: Arc<Mu
                 state.lock().unwrap().playing = false;
             }
         }
-
         if playing {
             let mut s = state.lock().unwrap();
             s.position = backend.position();

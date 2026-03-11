@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "ReAmped"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "color-thief",
  "dirs-next",
@@ -2933,6 +2933,7 @@ dependencies = [
  "dirs-next",
  "lofty",
  "num-complex",
+ "plugin_api",
  "rand 0.10.0",
  "ringbuf",
  "rubato",
@@ -2942,6 +2943,10 @@ dependencies = [
  "symphonia",
  "toml",
 ]
+
+[[package]]
+name = "plugin_api"
+version = "0.1.0"
 
 [[package]]
 name = "png"

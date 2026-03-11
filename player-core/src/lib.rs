@@ -6,6 +6,7 @@ pub mod track;
 pub mod audio;
 pub mod metadata;
 pub mod config;
+pub mod builtin_plugins;
 
 pub use player::Player;
 pub use command::PlayerCommand;

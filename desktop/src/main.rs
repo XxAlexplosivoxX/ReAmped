@@ -609,7 +609,7 @@ impl eframe::App for PlayerApp {
                                 {
                                     save_config(&cfg);
                                 }
-                                let max_bars = if cfg.old_style {128} else {512};
+                                let max_bars = if cfg.old_style { 128 } else { 512 };
                                 if ui
                                     .add(
                                         egui::Slider::new(
@@ -684,246 +684,279 @@ impl eframe::App for PlayerApp {
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
-                            let metadata = self.player.state.lock().unwrap().metadata.clone();
-                            if let Some(metadata) = metadata {
-                                let text =
-                                    format!("\"{}\" By: {}", metadata.title, metadata.artist);
-                                marquee_text(ui, &text, 40.0, self.text_color.clone());
-                            } else {
-                                marquee_text(
-                                    ui,
-                                    "\"ReAmped\" — XxAlexplosivoxX",
-                                    40.0,
-                                    self.text_color.clone(),
-                                );
-                            }
+                            // ui.horizontal(|ui| {
+                            //     let plugins = self.player.plugins_info();
+                            //     let plugins = plugins.lock().unwrap();
+                            //     let value1 = plugins.get_key_value("VU Meter");
+                            //     let value2 = plugins.get_key_value("RMS Meter");
+                            //     ui.vertical(|ui| {
+                            //         if value1.is_some() {
+                            //             draw_meter(ui, value1.unwrap().1.clone(), accent, text);
+                            //             ui.label(format!("{:.1}", *value1.unwrap().1));
+                            //         } else {
+                            //             draw_meter(ui, 0.0, accent, text);
+                            //             ui.label(format!("{:.1}", 0.0));
+                            //         }
+                            //     });
+                            //     ui.vertical(|ui| {
+                            //         if value2.is_some() {
+                            //             draw_meter(ui, value2.unwrap().1.clone(), accent, text);
+                            //             ui.label(format!("{:.1}", *value2.unwrap().1));
+                            //         } else {
+                            //             draw_meter(ui, 0.0, accent, text);
+                            //             ui.label(format!("{:.1}", 0.0));
+                            //         }
+                            //     });
+                            // });
                             ui.horizontal(|ui| {
-                                let state = self.player.state.lock().unwrap();
-
-                                let shuffle_on = state.shuffle;
-                                let repeat_on = state.repeat;
-                                let repeat_one_on = state.repeat_one;
-                                let play_on = state.playing;
-
-                                drop(state);
-
-                                if ui.add(egui::Button::new("⏮")).clicked() {
-                                    self.player.send(PlayerCommand::Prev);
-                                    self.ensure_cover_loaded(&ctx, true);
-                                }
-
-                                if ui.add(egui::Button::new("⏹")).clicked() {
-                                    self.player.send(PlayerCommand::Stop);
-                                }
-
-                                if ui
-                                    .add(egui::Button::selectable(
-                                        play_on,
-                                        egui::RichText::new("▶").color(if play_on {
-                                            accent.linear_multiply(2.4)
-                                        } else {
-                                            ui.visuals().text_color()
-                                        }),
-                                    ))
-                                    .clicked()
-                                {
-                                    self.player.send(PlayerCommand::Play);
-                                }
-
-                                if ui
-                                    .add(egui::Button::selectable(
-                                        !play_on,
-                                        egui::RichText::new("⏸").color(if !play_on {
-                                            accent.linear_multiply(2.4)
-                                        } else {
-                                            ui.visuals().text_color()
-                                        }),
-                                    ))
-                                    .clicked()
-                                {
-                                    self.player.send(PlayerCommand::Pause);
-                                }
-
-                                if ui.add(egui::Button::new("⏭")).clicked() {
-                                    self.player.send(PlayerCommand::Next);
-                                    self.ensure_cover_loaded(&ctx, true);
-                                }
-                                ui.style_mut().visuals.widgets.noninteractive.bg_stroke =
-                                    egui::Stroke::new(1.0, text);
-                                ui.separator();
-
-                                if ui
-                                    .add(egui::Button::selectable(
-                                        shuffle_on,
-                                        egui::RichText::new("🔀").color(if shuffle_on {
-                                            accent.linear_multiply(2.4)
-                                        } else {
-                                            ui.visuals().text_color()
-                                        }),
-                                    ))
-                                    .clicked()
-                                {
-                                    self.player.send(PlayerCommand::ToggleShuffle);
-                                }
-
-                                if ui
-                                    .add(egui::Button::selectable(
-                                        repeat_on,
-                                        egui::RichText::new("🔁").color(if repeat_on {
-                                            accent.linear_multiply(2.4)
-                                        } else {
-                                            ui.visuals().text_color()
-                                        }),
-                                    ))
-                                    .clicked()
-                                {
-                                    self.player.send(PlayerCommand::ToggleRepeat);
-                                }
-
-                                if ui
-                                    .add(egui::Button::selectable(
-                                        repeat_one_on,
-                                        egui::RichText::new("🔂").color(if repeat_one_on {
-                                            accent.linear_multiply(2.4)
-                                        } else {
-                                            ui.visuals().text_color()
-                                        }),
-                                    ))
-                                    .clicked()
-                                {
-                                    self.player.send(PlayerCommand::ToggleRepeatOne);
-                                }
-                            });
-                        });
-                        ui.vertical(|ui| {
-                            ui.horizontal(|ui| {
-                                if ui.button("🔄 rescan").clicked() {
-                                    self.load_library_async();
-                                }
-                                if ui.button(if self.fullscreen { "🗖" } else { "🗗" }).clicked()
-                                {
-                                    self.fullscreen = !self.fullscreen;
-
-                                    ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(
-                                        self.fullscreen,
-                                    ));
-                                }
-                                if ui.button("⚙").clicked() {
-                                    self.show_settings = true;
-                                }
-                            });
-                        });
-                    });
-                    ui.vertical(|ui| {
-                        ui.horizontal(|ui| {
-                            ui.add_sized(
-                                [39.8, 20.5],
-                                egui::Label::new(
-                                    "🔊 ".to_owned()
-                                        + format!("{:.0}%", self.volume * 100.0).as_str(),
-                                ),
-                            );
-                            let resp = ui.add(
-                                egui::Slider::new(&mut self.volume, 0.0..=1.0)
-                                    .show_value(false)
-                                    .step_by(0.01)
-                                    .handle_shape(HandleShape::Rect {
-                                        aspect_ratio: (1.0),
-                                    })
-                                    .trailing_fill(true),
-                            );
-                            {
-                                let mut cfg = self.config.lock().unwrap();
-                                if resp.changed() {
-                                    self.player.send(PlayerCommand::SetVolume(self.volume));
-                                    cfg.volume = self.volume;
-                                } else if resp.drag_stopped() {
-                                    save_config(&cfg);
-                                }
-                            }
-                            if ui
-                                .button(
-                                    "≡ order: ".to_owned() + self.sort_option.to_string().as_str(),
-                                )
-                                .clicked()
-                            {
-                                let sort_option = self.sort_option.clone();
-                                match sort_option {
-                                    Options::Normal => {
-                                        self.sort_option = Options::Alphabetical;
+                                ui.vertical(|ui| {
+                                    let metadata =
+                                        self.player.state.lock().unwrap().metadata.clone();
+                                    if let Some(metadata) = metadata {
+                                        let text = format!(
+                                            "\"{}\" By: {}",
+                                            metadata.title, metadata.artist
+                                        );
+                                        marquee_text(ui, &text, 40.0, self.text_color.clone());
+                                    } else {
+                                        marquee_text(
+                                            ui,
+                                            "\"ReAmped\" — XxAlexplosivoxX",
+                                            40.0,
+                                            self.text_color.clone(),
+                                        );
                                     }
-                                    Options::Alphabetical => {
-                                        self.sort_option = Options::Normal;
+                                    ui.horizontal(|ui| {
+                                        let state = self.player.state.lock().unwrap();
+
+                                        let shuffle_on = state.shuffle;
+                                        let repeat_on = state.repeat;
+                                        let repeat_one_on = state.repeat_one;
+                                        let play_on = state.playing;
+
+                                        drop(state);
+
+                                        if ui.add(egui::Button::new("⏮")).clicked() {
+                                            self.player.send(PlayerCommand::Prev);
+                                            self.ensure_cover_loaded(&ctx, true);
+                                        }
+
+                                        if ui.add(egui::Button::new("⏹")).clicked() {
+                                            self.player.send(PlayerCommand::Stop);
+                                        }
+
+                                        if ui
+                                            .add(egui::Button::selectable(
+                                                play_on,
+                                                egui::RichText::new("▶").color(if play_on {
+                                                    accent.linear_multiply(2.4)
+                                                } else {
+                                                    ui.visuals().text_color()
+                                                }),
+                                            ))
+                                            .clicked()
+                                        {
+                                            self.player.send(PlayerCommand::Play);
+                                        }
+
+                                        if ui
+                                            .add(egui::Button::selectable(
+                                                !play_on,
+                                                egui::RichText::new("⏸").color(if !play_on {
+                                                    accent.linear_multiply(2.4)
+                                                } else {
+                                                    ui.visuals().text_color()
+                                                }),
+                                            ))
+                                            .clicked()
+                                        {
+                                            self.player.send(PlayerCommand::Pause);
+                                        }
+
+                                        if ui.add(egui::Button::new("⏭")).clicked() {
+                                            self.player.send(PlayerCommand::Next);
+                                            self.ensure_cover_loaded(&ctx, true);
+                                        }
+                                        ui.style_mut().visuals.widgets.noninteractive.bg_stroke =
+                                            egui::Stroke::new(1.0, text);
+                                        ui.separator();
+
+                                        if ui
+                                            .add(egui::Button::selectable(
+                                                shuffle_on,
+                                                egui::RichText::new("🔀").color(if shuffle_on {
+                                                    accent.linear_multiply(2.4)
+                                                } else {
+                                                    ui.visuals().text_color()
+                                                }),
+                                            ))
+                                            .clicked()
+                                        {
+                                            self.player.send(PlayerCommand::ToggleShuffle);
+                                        }
+
+                                        if ui
+                                            .add(egui::Button::selectable(
+                                                repeat_on,
+                                                egui::RichText::new("🔁").color(if repeat_on {
+                                                    accent.linear_multiply(2.4)
+                                                } else {
+                                                    ui.visuals().text_color()
+                                                }),
+                                            ))
+                                            .clicked()
+                                        {
+                                            self.player.send(PlayerCommand::ToggleRepeat);
+                                        }
+
+                                        if ui
+                                            .add(egui::Button::selectable(
+                                                repeat_one_on,
+                                                egui::RichText::new("🔂").color(if repeat_one_on {
+                                                    accent.linear_multiply(2.4)
+                                                } else {
+                                                    ui.visuals().text_color()
+                                                }),
+                                            ))
+                                            .clicked()
+                                        {
+                                            self.player.send(PlayerCommand::ToggleRepeatOne);
+                                        }
+                                    });
+                                });
+                                ui.vertical(|ui| {
+                                    ui.horizontal(|ui| {
+                                        if ui.button("🔄 rescan").clicked() {
+                                            self.load_library_async();
+                                        }
+                                        if ui
+                                            .button(if self.fullscreen { "🗖" } else { "🗗" })
+                                            .clicked()
+                                        {
+                                            self.fullscreen = !self.fullscreen;
+
+                                            ctx.send_viewport_cmd(
+                                                egui::ViewportCommand::Fullscreen(self.fullscreen),
+                                            );
+                                        }
+                                        if ui.button("⚙").clicked() {
+                                            self.show_settings = true;
+                                        }
+                                    });
+                                });
+                            });
+                            ui.vertical(|ui| {
+                                ui.horizontal(|ui| {
+                                    ui.add_sized(
+                                        [39.8, 20.5],
+                                        egui::Label::new(
+                                            "🔊 ".to_owned()
+                                                + format!("{:.0}%", self.volume * 100.0).as_str(),
+                                        ),
+                                    );
+                                    let resp = ui.add(
+                                        egui::Slider::new(&mut self.volume, 0.0..=1.0)
+                                            .show_value(false)
+                                            .step_by(0.01)
+                                            .handle_shape(HandleShape::Rect {
+                                                aspect_ratio: (1.0),
+                                            })
+                                            .trailing_fill(true),
+                                    );
+                                    {
+                                        let mut cfg = self.config.lock().unwrap();
+                                        if resp.changed() {
+                                            self.player.send(PlayerCommand::SetVolume(self.volume));
+                                            cfg.volume = self.volume;
+                                        } else if resp.drag_stopped() {
+                                            save_config(&cfg);
+                                        }
                                     }
-                                }
-                                self.load_library_async();
-                            }
-                            if ui.button("🔀 Aleatorize").clicked() {
-                                self.player.send(PlayerCommand::AleatoryFullRandom);
-                            }
-                        });
-                        if ui
-                            .horizontal(|ui| {
-                                if !ui
-                                    .add_sized(
-                                        [ui.available_width() / 3.0, ui.available_height()],
-                                        egui::TextEdit::singleline(&mut self.search_str)
-                                            .hint_text(
-                                                RichText::new("type here to search...")
-                                                    .color(
-                                                        egui::Color32::from_rgb(
-                                                            self.palette_sorted[0][0],
-                                                            self.palette_sorted[0][1],
-                                                            self.palette_sorted[0][2],
+                                    if ui
+                                        .button(
+                                            "≡ order: ".to_owned()
+                                                + self.sort_option.to_string().as_str(),
+                                        )
+                                        .clicked()
+                                    {
+                                        let sort_option = self.sort_option.clone();
+                                        match sort_option {
+                                            Options::Normal => {
+                                                self.sort_option = Options::Alphabetical;
+                                            }
+                                            Options::Alphabetical => {
+                                                self.sort_option = Options::Normal;
+                                            }
+                                        }
+                                        self.load_library_async();
+                                    }
+                                    if ui.button("🔀 Aleatorize").clicked() {
+                                        self.player.send(PlayerCommand::AleatoryFullRandom);
+                                    }
+                                });
+                                if ui
+                                    .horizontal(|ui| {
+                                        if !ui
+                                            .add_sized(
+                                                [ui.available_width() / 3.0, ui.available_height()],
+                                                egui::TextEdit::singleline(&mut self.search_str)
+                                                    .hint_text(
+                                                        RichText::new("type here to search...")
+                                                            .color(
+                                                                egui::Color32::from_rgb(
+                                                                    self.palette_sorted[0][0],
+                                                                    self.palette_sorted[0][1],
+                                                                    self.palette_sorted[0][2],
+                                                                )
+                                                                .linear_multiply(0.5),
+                                                            )
+                                                            .italics(),
+                                                    )
+                                                    .background_color(
+                                                        egui::Color32::from_rgba_premultiplied(
+                                                            self.palette_sorted[1][0],
+                                                            self.palette_sorted[1][1],
+                                                            self.palette_sorted[1][2],
+                                                            100,
                                                         )
                                                         .linear_multiply(0.5),
-                                                    )
-                                                    .italics(),
+                                                    ),
                                             )
-                                            .background_color(
-                                                egui::Color32::from_rgba_premultiplied(
-                                                    self.palette_sorted[1][0],
-                                                    self.palette_sorted[1][1],
-                                                    self.palette_sorted[1][2],
-                                                    100,
-                                                )
-                                                .linear_multiply(0.5),
-                                            ),
-                                    )
-                                    .contains_pointer()
+                                            .contains_pointer()
+                                        {
+                                            // self.search_str = String::from("")
+                                        }
+                                        let playlist = self.player.playlist();
+                                        mini_playlist(
+                                            ui,
+                                            &playlist,
+                                            self.current_track.clone(),
+                                            self.player.is_playing(),
+                                            accent,
+                                            |i| self.player.send(PlayerCommand::JumpTo(i)),
+                                            self.position,
+                                            self.just_executed,
+                                            self.search_str.clone(),
+                                        );
+                                    })
+                                    .response
+                                    .changed()
                                 {
-                                    // self.search_str = String::from("")
-                                }
-                                let playlist = self.player.playlist();
-                                mini_playlist(
-                                    ui,
-                                    &playlist,
-                                    self.current_track.clone(),
-                                    self.player.is_playing(),
-                                    accent,
-                                    |i| self.player.send(PlayerCommand::JumpTo(i)),
-                                    self.position,
-                                    self.just_executed,
-                                    self.search_str.clone(),
-                                );
-                            })
-                            .response
-                            .changed()
-                        {
-                            sleep(Duration::from_secs(2));
-                            self.search_str = String::from("");
-                        };
-                        let samples = &self.player.samples;
-                        let palette = &self.palette_sorted;
-                        self.visualizer.draw_spectrum(
-                            ui,
-                            &samples,
-                            palette[0][0],
-                            palette[0][1],
-                            palette[0][2],
-                        );
+                                    sleep(Duration::from_secs(2));
+                                    self.search_str = String::from("");
+                                };
+                            });
+                        });
                     });
-                    // ui.add_space(8.0);
+                    let samples = &self.player.samples;
+                    let palette = &self.palette_sorted;
+                    self.visualizer.draw_spectrum(
+                        ui,
+                        &samples,
+                        palette[0][0],
+                        palette[0][1],
+                        palette[0][2],
+                    );
                 });
             });
             ui.horizontal(|ui| {
@@ -976,7 +1009,6 @@ impl eframe::App for PlayerApp {
                     self.state = String::from("status: Playing");
                 }
             });
-
             let height = ui.available_height() - 10.0;
 
             let (rect, _) = ui.allocate_exact_size(
@@ -1288,12 +1320,134 @@ fn truncate(text: &str, max_chars: usize) -> String {
     }
     out
 }
+fn amp_to_db(v: f32) -> f32 {
+    20.0 * v.max(1e-9).log10()
+}
+
+fn db_to_meter(db: f32) -> f32 {
+    let min_db = -60.0;
+    let max_db = 0.0;
+    ((db - min_db) / (max_db - min_db)).clamp(0.0, 1.0)
+}
+pub fn draw_meter_horizontal(
+    ui: &mut egui::Ui,
+    value: f32,
+    color_low: Color32,
+    color_mid: Color32,
+    color_high: Color32,
+    quantity: usize,
+) {
+    fn meter_color(
+        db: f32,
+        color_low: Color32,
+        color_mid: Color32,
+        color_high: Color32,
+    ) -> Color32 {
+        fn lerp(a: u8, b: u8, t: f32) -> u8 {
+            (a as f32 + (b as f32 - a as f32) * t) as u8
+        }
+
+        fn blend(c1: Color32, c2: Color32, t: f32) -> Color32 {
+            Color32::from_rgba_premultiplied(
+                lerp(c1.r(), c2.r(), t),
+                lerp(c1.g(), c2.g(), t),
+                lerp(c1.b(), c2.b(), t),
+                lerp(c1.a(), c2.a(), t),
+            )
+        }
+
+        if db <= -12.0 {
+            let t = ((db + 60.0) / 48.0).clamp(0.0, 1.0);
+            blend(color_low, color_mid, t)
+        } else {
+            let t = ((db + 12.0) / 6.0).clamp(0.0, 1.0);
+            blend(color_mid, color_high, t)
+        }
+    }
+
+    let db = amp_to_db(value);
+    let norm = db_to_meter(db);
+
+    let size = egui::vec2(ui.available_width() / quantity as f32, 18.0);
+    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+
+    let painter = ui.painter();
+
+    painter.rect_filled(rect, 2.0, egui::Color32::DARK_GRAY);
+
+    let width = rect.width() * norm;
+
+    let fill = egui::Rect::from_min_max(
+        rect.left_top(),
+        egui::pos2(rect.left() + width, rect.bottom()),
+    );
+
+    painter.rect_filled(fill, 2.0, meter_color(db, color_low, color_mid, color_high));
+}
+
+pub fn draw_meter_segments(ui: &mut egui::Ui, value: f32) {
+    fn meter_color(db: f32) -> egui::Color32 {
+        if db > -6.0 {
+            egui::Color32::RED
+        } else if db > -12.0 {
+            egui::Color32::YELLOW
+        } else {
+            egui::Color32::GREEN
+        }
+    }
+
+    let db = amp_to_db(value);
+    let norm = db_to_meter(db);
+
+    let size = egui::vec2(250.0, 14.0);
+    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+
+    let painter = ui.painter();
+
+    painter.rect_filled(rect, 2.0, egui::Color32::from_gray(30));
+
+    let segments = 40;
+
+    for i in 0..segments {
+        let t = i as f32 / segments as f32;
+
+        if t <= norm {
+            let x1 = rect.left() + rect.width() * (i as f32 / segments as f32);
+            let x2 = rect.left() + rect.width() * ((i + 1) as f32 / segments as f32);
+
+            let seg = egui::Rect::from_min_max(
+                egui::pos2(x1, rect.top()),
+                egui::pos2(x2 - 1.0, rect.bottom()),
+            );
+
+            painter.rect_filled(seg, 1.0, meter_color(db));
+        }
+    }
+}
+
+pub fn draw_meter(ui: &mut egui::Ui, value: f32, bg: Color32, fg: Color32) {
+    let norm = value;
+    let size = egui::vec2(15.0, 140.0);
+    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+
+    let painter = ui.painter();
+
+    let height = rect.height() * norm;
+
+    let fill = egui::Rect::from_min_max(
+        egui::pos2(rect.left(), rect.bottom() - height),
+        rect.right_bottom(),
+    );
+
+    painter.rect_filled(rect, 2.0, bg);
+    painter.rect_filled(fill, 2.0, fg);
+}
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         vsync: true,
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([532.0, 292.0])
+            .with_inner_size([550.0, 300.0])
             .with_resizable(false)
             .with_decorations(true),
         ..Default::default()

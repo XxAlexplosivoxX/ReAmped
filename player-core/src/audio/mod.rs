@@ -4,6 +4,7 @@ use crate::audio::viz_source::SharedSamples;
 
 pub mod symphonia_backend;
 pub mod viz_source;
+pub mod plugins_chain;
 
 pub trait AudioBackend {
     fn load(&mut self, track: &crate::Track);

@@ -1,9 +1,10 @@
 use std::{
+    collections::HashMap,
     fs::File,
     path::Path,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
     },
     thread,
     time::{Duration, Instant},
@@ -30,16 +31,22 @@ use cpal::{
 };
 
 use super::{AudioBackend, viz_source::SharedSamples};
-use crate::Track;
+use crate::{
+    Track,
+    audio::plugins_chain::PluginChain,
+    builtin_plugins::{meter_lufs::LufsMeter, meter_rms::RmsMeter, meter_vu::VuMeter},
+    config::load_config,
+};
 
 use ringbuf::RingBuffer;
 
 pub struct SymphoniaBackend {
     samples: SharedSamples,
+    plugins: Arc<Mutex<HashMap<String, f32>>>,
     playing: Arc<AtomicBool>,
     start: Option<Instant>,
     paused_at: f32,
-    volume: Arc<Mutex<f32>>,
+    volume: Arc<AtomicU32>,
     stream: Option<Stream>,
     alive: Arc<AtomicBool>,
     finished: Arc<AtomicBool>,
@@ -47,13 +54,14 @@ pub struct SymphoniaBackend {
 }
 
 impl SymphoniaBackend {
-    pub fn new(samples: SharedSamples) -> Self {
+    pub fn new(samples: SharedSamples, plugins: Arc<Mutex<HashMap<String, f32>>>) -> Self {
         Self {
             samples,
+            plugins,
             playing: Arc::new(AtomicBool::new(false)),
             start: None,
             paused_at: 0.0,
-            volume: Arc::new(Mutex::new(1.0)),
+            volume: Arc::new(AtomicU32::new((load_config().volume * 100.0) as u32)),
             stream: None,
             alive: Arc::new(AtomicBool::new(true)),
             finished: Arc::new(AtomicBool::new(false)),
@@ -74,7 +82,7 @@ impl SymphoniaBackend {
         playing.store(true, Ordering::SeqCst);
         self.start = Some(Instant::now());
 
-        // ================= CPAL =================
+        // ================= CPAL INIT =================
         let host = cpal::default_host();
         let device = host.default_output_device().unwrap();
         let mut config: cpal::StreamConfig = device.default_output_config().unwrap().into();
@@ -83,6 +91,14 @@ impl SymphoniaBackend {
         let ring = RingBuffer::<f32>::new(output_sr * 4);
         let (mut producer, mut consumer) = ring.split();
         config.channels = 2; // estéreo
+
+        // ================= PLUGINS =================
+        let mut chain = PluginChain::new();
+        chain.add(Box::new(LufsMeter::new()));
+        chain.add(Box::new(RmsMeter::new()));
+        chain.add(Box::new(VuMeter::new()));
+
+        let plugins_map = self.plugins.clone();
 
         // ================= DECODE THREAD =================
         let finished = self.finished.clone();
@@ -108,7 +124,6 @@ impl SymphoniaBackend {
 
             let channels = track.codec_params.channels.unwrap().count();
             let input_sr = track.codec_params.sample_rate.unwrap() as usize;
-
             let mut params = track.codec_params.clone();
             params.sample_rate = Some(output_sr as u32);
 
@@ -126,9 +141,9 @@ impl SymphoniaBackend {
                 );
             }
 
+            // ================= RESAMPLING =================
             let chunk_size = 128;
             let mut interleaved = Vec::<f32>::new();
-
             let mut resampler = Fft::<f32>::new(
                 input_sr,
                 output_sr,
@@ -150,7 +165,10 @@ impl SymphoniaBackend {
                     Err(_) => break,
                 };
 
-                let decoded = decoder.decode(&packet).unwrap();
+                let decoded = match decoder.decode(&packet) {
+                    Ok(decoded) => decoded,
+                    Err(_) => continue,
+                };
                 let mut buf = SampleBuffer::<f32>::new(decoded.capacity() as u64, *decoded.spec());
                 buf.copy_interleaved_ref(decoded);
 
@@ -161,6 +179,14 @@ impl SymphoniaBackend {
                         (frame[0], frame[1])
                     };
 
+                    chain.process(l, r);
+                    {
+                        let mut plugins = plugins_map.lock().unwrap();
+
+                        for (name, value) in chain.collect_values() {
+                            plugins.insert(name, value);
+                        }
+                    }
                     interleaved.push(l);
                     interleaved.push(r);
 
@@ -193,12 +219,12 @@ impl SymphoniaBackend {
             finished.store(true, Ordering::SeqCst);
         });
         self.decode_handle = Some(handle);
-        // ================= CPAL STREAM =================
+        // ================= CPAL STREAM (output) =================
         let stream = device
             .build_output_stream(
                 &config,
                 move |out: &mut [f32], _| {
-                    let vol = *volume.lock().unwrap();
+                    let vol = volume.load(Ordering::SeqCst) as f32 / 100.0;
                     for s in out.iter_mut() {
                         if !playing.load(Ordering::SeqCst) {
                             *s = 0.0;
@@ -208,7 +234,7 @@ impl SymphoniaBackend {
                         if let Some(sample) = consumer.pop() {
                             *s = sample * vol;
                             let mut viz = samples_viz.lock().unwrap();
-                            viz.push(s.clone());
+                            viz.push(*s);
                         } else {
                             *s = 0.0;
                         }
@@ -261,7 +287,7 @@ impl AudioBackend for SymphoniaBackend {
     }
 
     fn set_volume(&self, volume: f32) {
-        *self.volume.lock().unwrap() = volume;
+        self.volume.store((volume * 100.0) as u32, Ordering::SeqCst);
     }
 
     fn seek(&mut self, path: &Path, seconds: f32) {
