@@ -14,7 +14,7 @@ Lightweight music player with real-time visualizers and other nice things
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20android-blue?style=for-the-badge)
 ![Rust](https://img.shields.io/badge/built%20with-rust-orange?style=for-the-badge)
 ![License](https://img.shields.io/github/license/XxAlexplosivoxX/ReAmped?style=for-the-badge)
-<a href="https://github.com/yourname/reamped/releases">
+<a href="https://github.com/XxAlexplosivoxX/ReAmped/releases">
   <img src="https://img.shields.io/badge/Download-Latest%20Release-2ea44f?style=for-the-badge&logo=github">
 </a>
 </p>
