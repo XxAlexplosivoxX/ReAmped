@@ -101,6 +101,13 @@ Just download and run.
 
 ---
 
+# Architecture
+<div align=center>
+  <img src="demo/reamped architecture.drawio.png">
+</div>
+
+---
+
 ## Audio Meters 
 >Under development, but i think make it like a DAW or something
 
