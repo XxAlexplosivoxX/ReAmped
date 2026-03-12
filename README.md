@@ -38,7 +38,7 @@ All built with **performance and extensibility in mind**.
 # Preview
 
 <p align="center">
-<img width="1910" height="1032" alt="2026-03-11_16-15-57" src="https://github.com/user-attachments/assets/227cfd16-6578-4652-b1f0-ab83b681e36f" />
+<img width="1910" height="1032" alt="2026-03-11_16-15-57" src="demo/reamped2.gif" />
 <img width="1910" height="1032" alt="2026-03-11_16-16-09" src="https://github.com/user-attachments/assets/42d3e3f6-39bd-4ab8-8690-1e2ef0be51ac" />
 <img width="1910" height="1032" alt="2026-03-11_16-21-31" src="https://github.com/user-attachments/assets/f0dbb2b6-fad0-4e4d-ac6c-2a2125e4d6a0" />
 <img width="1910" height="1032" alt="2026-03-11_16-21-49" src="https://github.com/user-attachments/assets/55b0accc-b003-4995-8a82-8e287a94711b" />
