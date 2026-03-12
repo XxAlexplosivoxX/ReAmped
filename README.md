@@ -103,7 +103,7 @@ Just download and run.
 
 # Architecture
 <div align=center>
-  <img src="demo/reamped architecture.drawio.png">
+  <img src="demo/reamped_architecture.png">
 </div>
 
 ---
