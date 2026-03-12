@@ -1,8 +1,9 @@
 <p align="center">
-
+  
 # ReAmped
-
 ### A modern audio player focused on **visuals**, **performance**, and **extensibility**
+  
+<img width="1910" height="1032" alt="2026-03-11_16-15-57" src="demo/reamped.gif" />
 
 Lightweight music player with real-time visualizers and other nice things
 
