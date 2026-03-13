@@ -3,6 +3,7 @@
 mod player;
 mod ui_elements;
 mod utils;
+mod dsp_ui;
 
 use player_core::config::load_config;
 

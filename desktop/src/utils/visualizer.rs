@@ -179,7 +179,7 @@ impl SpectrumVisualizer {
             let bars = self.state.smooth.len();
             let bar_width = rect.width() / bars as f32;
 
-            let min_h = 0.5;
+            let min_h = 0.0;
             if spectrum_mode_line {
                 let mut points: Vec<Pos2> = Vec::with_capacity(bars);
 

@@ -91,7 +91,12 @@ impl Player {
             let plugins = plugins.clone();
             move || audio_loop(rx, samples, state, plugins)
         });
-        Self { tx, samples, state , plugins }
+        Self {
+            tx,
+            samples,
+            state,
+            plugins,
+        }
     }
 
     pub fn send(&self, cmd: PlayerCommand) {
@@ -124,7 +129,12 @@ impl Player {
     }
 }
 
-fn audio_loop(rx: Receiver<PlayerCommand>, samples: SharedSamples, state: Arc<Mutex<PlayerState>>, plugins: Arc<Mutex<HashMap<String, f32>>>) {
+fn audio_loop(
+    rx: Receiver<PlayerCommand>,
+    samples: SharedSamples,
+    state: Arc<Mutex<PlayerState>>,
+    plugins: Arc<Mutex<HashMap<String, f32>>>,
+) {
     let mut backend = SymphoniaBackend::new(samples, plugins.clone());
     let mut playlist: Vec<Track> = Vec::new();
     let mut current_index: usize = 0;
@@ -134,18 +144,17 @@ fn audio_loop(rx: Receiver<PlayerCommand>, samples: SharedSamples, state: Arc<Mu
     let mut rng = rng();
     let mut shuffled_indices: Vec<usize> = Vec::new();
     let mut shuffle_pos: usize = 0;
-    
-    
+
     loop {
         let playing = state.lock().unwrap().playing;
-        
+
         if playing && backend.finished() {
             if repeat_one {
                 load_current(&mut backend, &playlist, current_index, &state);
                 backend.play();
                 continue;
             }
-            
+
             if shuffle {
                 shuffle_pos += 1;
 
@@ -164,7 +173,7 @@ fn audio_loop(rx: Receiver<PlayerCommand>, samples: SharedSamples, state: Arc<Mu
                 backend.play();
                 continue;
             }
-            
+
             if current_index + 1 < playlist.len() {
                 current_index += 1;
                 load_current(&mut backend, &playlist, current_index, &state);
@@ -382,11 +391,22 @@ fn audio_loop(rx: Receiver<PlayerCommand>, samples: SharedSamples, state: Arc<Mu
                     s.playing = true;
                 }
 
+                PlayerCommand::SetGainBass(gain) => {
+                    backend.low_gain(gain);
+                }
+
+                PlayerCommand::SetGainMid(gain) => {
+                    backend.mid_gain(gain);
+                }
+                
+                PlayerCommand::SetGainHigh(gain) => {
+                    backend.high_gain(gain);
+                }
                 _ => {}
             },
 
             Err(RecvTimeoutError::Timeout) => {
-                // continua, pos 
+                // continua, pos
             }
 
             Err(RecvTimeoutError::Disconnected) => {

@@ -31,7 +31,9 @@ pub struct PlayerApp {
     pub show_picker3: bool,
     pub search_str: String,
     pub sort_option: Options,
-    _playlist: Option<Vec<Track>>,
+    pub bass_val: f32,
+    pub mid_val: f32,
+    pub high_val: f32,
 }
 
 impl Default for PlayerApp {
@@ -72,7 +74,9 @@ impl Default for PlayerApp {
             show_picker3: false,
             search_str: String::from(""),
             sort_option: Options::Normal,
-            _playlist: None,
+            bass_val: 1.0, 
+            mid_val: 1.0, 
+            high_val: 1.0, 
         }
     }
 }

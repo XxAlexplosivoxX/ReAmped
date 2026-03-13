@@ -1,10 +1,10 @@
-use egui::{Ui};
+use egui::{Color32, Ui};
 use player_core::{PlayerCommand, player::Options};
-use crate::PlayerApp;
+use crate::{PlayerApp};
 
-pub fn show_order_buttons(ui: &mut Ui, player: &mut PlayerApp) {
+pub fn show_order_buttons(ui: &mut Ui, player: &mut PlayerApp, _accent: Color32, _text_color: Color32) {
     if ui
-        .button("≡ order: ".to_owned() + player.sort_option.to_string().as_str())
+        .button("≡ ".to_owned() + player.sort_option.to_string().as_str())
         .clicked()
     {
         let sort_option = player.sort_option.clone();
@@ -18,7 +18,7 @@ pub fn show_order_buttons(ui: &mut Ui, player: &mut PlayerApp) {
         }
         player.load_library_async();
     }
-    if ui.button("🔀 Aleatorize").clicked() {
+    if ui.button("🔀 Shuffle").clicked() {
         player.player.send(PlayerCommand::AleatoryFullRandom);
     }
 }

@@ -1,6 +1,6 @@
 use egui::{Color32, Context, Ui};
 use player_core::{PlayerCommand};
-use crate::{PlayerApp, utils::marquee_text::show_marquee_text};
+use crate::{PlayerApp, dsp_ui::mini_eq::show_eq_controls, utils::marquee_text::show_marquee_text};
 
 pub fn show_buttons_and_title(ui: &mut Ui, ctx: &Context, player_app: &mut PlayerApp, text_color: Color32, accent: Color32) {
     ui.horizontal(|ui| {

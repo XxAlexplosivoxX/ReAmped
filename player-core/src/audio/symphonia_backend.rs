@@ -36,6 +36,7 @@ use crate::{
     audio::plugins_chain::PluginChain,
     builtin_plugins::{meter_lufs::LufsMeter, meter_rms::RmsMeter, meter_vu::VuMeter},
     config::load_config,
+    dsp::mini_eq::{TripleBandEq},
 };
 
 use ringbuf::RingBuffer;
@@ -51,6 +52,9 @@ pub struct SymphoniaBackend {
     alive: Arc<AtomicBool>,
     finished: Arc<AtomicBool>,
     decode_handle: Option<std::thread::JoinHandle<()>>,
+    low_gain: Arc<AtomicU32>,
+    mid_gain: Arc<AtomicU32>,
+    high_gain: Arc<AtomicU32>,
 }
 
 impl SymphoniaBackend {
@@ -66,6 +70,9 @@ impl SymphoniaBackend {
             alive: Arc::new(AtomicBool::new(true)),
             finished: Arc::new(AtomicBool::new(false)),
             decode_handle: None,
+            low_gain: Arc::new(AtomicU32::new(100)),
+            mid_gain: Arc::new(AtomicU32::new(100)),
+            high_gain: Arc::new(AtomicU32::new(100)),
         }
     }
 
@@ -179,7 +186,7 @@ impl SymphoniaBackend {
                         (frame[0], frame[1])
                     };
 
-                    chain.process(l, r);
+                    // chain.process(l, r);
                     {
                         let mut plugins = plugins_map.lock().unwrap();
 
@@ -219,24 +226,40 @@ impl SymphoniaBackend {
             finished.store(true, Ordering::SeqCst);
         });
         self.decode_handle = Some(handle);
-        // ================= CPAL STREAM (output) =================
+        // ================= CPAL STREAM (output and now DSP processing) =================
+        let mut eq_l = TripleBandEq::new();
+        let mut eq_r = TripleBandEq::new();
+        let low_g = self.low_gain.clone();
+        let mid_g = self.mid_gain.clone();
+        let high_g = self.high_gain.clone();
         let stream = device
             .build_output_stream(
                 &config,
                 move |out: &mut [f32], _| {
-                    let vol = volume.load(Ordering::SeqCst) as f32 / 100.0;
-                    for s in out.iter_mut() {
-                        if !playing.load(Ordering::SeqCst) {
-                            *s = 0.0;
+                    let vol = volume.load(Ordering::Relaxed) as f32 / 100.0;
+                    let g_l = low_g.load(Ordering::Relaxed) as f32 / 100.0;
+                    let g_m = mid_g.load(Ordering::Relaxed) as f32 / 100.0;
+                    let g_h = high_g.load(Ordering::Relaxed) as f32 / 100.0;
+
+                    eq_l.update_all(g_l, g_m, g_h, output_sr as f32);
+                    eq_r.update_all(g_l, g_m, g_h, output_sr as f32);
+                    for frame in out.chunks_mut(2) {
+                        if !playing.load(Ordering::Relaxed) {
+                            frame.fill(0.0);
                             continue;
                         }
 
-                        if let Some(sample) = consumer.pop() {
-                            *s = sample * vol;
-                            let mut viz = samples_viz.lock().unwrap();
-                            viz.push(*s);
-                        } else {
-                            *s = 0.0;
+                        // Left Channel
+                        if let Some(mut s_l) = consumer.pop() {
+                            s_l = eq_l.process(s_l); // APPLY EQ
+                            frame[0] = s_l * vol;
+                            samples_viz.lock().unwrap().push(frame[0]);
+                        }
+
+                        // Right Channel
+                        if let Some(mut s_r) = consumer.pop() {
+                            s_r = eq_r.process(s_r); // APPLY EQ
+                            frame[1] = s_r * vol;
                         }
                     }
                 },
@@ -309,5 +332,18 @@ impl AudioBackend for SymphoniaBackend {
 
     fn finished(&self) -> bool {
         self.finished.load(Ordering::SeqCst)
+    }
+
+    fn low_gain(&self, gain: f32) {
+        self.low_gain.store((gain * 100.0) as u32, Ordering::SeqCst);
+    }
+
+    fn mid_gain(&self, gain: f32) {
+        self.mid_gain.store((gain * 100.0) as u32, Ordering::SeqCst);
+    }
+
+    fn high_gain(&self, gain: f32) {
+        self.high_gain
+            .store((gain * 100.0) as u32, Ordering::SeqCst);
     }
 }

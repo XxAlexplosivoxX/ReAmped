@@ -1,11 +1,13 @@
-
 use egui::{Color32, style::HandleShape};
 use player_core::{PlayerCommand, viz::waveform::waveform};
 
 use crate::{
+    dsp_ui::mini_eq::show_eq_controls,
     player::player_app_init::PlayerApp,
     ui_elements::{
-        buttons::show_buttons_and_title, config_window::show_config_window, cover_view::show_cover, order_buttons::show_order_buttons, search_and_miniplaylist::show_search_and_miniplaylist, volume_bar::show_volume_bar
+        buttons::show_buttons_and_title, config_window::show_config_window, cover_view::show_cover,
+        order_buttons::show_order_buttons, search_and_miniplaylist::show_search_and_miniplaylist,
+        volume_bar::show_volume_bar,
     },
     utils::{background::draw_slanted_vertical_gradient, visualizer::draw_waveform_raw},
 };
@@ -13,7 +15,6 @@ use crate::{
 impl eframe::App for PlayerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let palette = self.palette_sorted.clone();
-
         let panel =
             Color32::from_rgba_unmultiplied_const(palette[2][0], palette[2][1], palette[2][2], 120);
         let accent = panel.clone();
@@ -21,11 +22,19 @@ impl eframe::App for PlayerApp {
         let text = Color32::from_rgb(palette[0][0], palette[0][1], palette[0][2]);
 
         let base_width: f32 = 532.0;
-        let current_width = ctx.input(|i| i.viewport_rect().width());
-        let scale = (current_width / base_width).clamp(0.1, 2.0);
 
-        ctx.set_pixels_per_point(scale * ctx.pixels_per_point());
-        // ctx.set_debug_on_hover(true);
+        // 1. Get physical width from the viewport
+        let physical_width = ctx.input(|i| i.viewport_rect().width() * i.pixels_per_point());
+
+        // 2. Your target "internal" width for the design
+        let base_width = 532.0;
+
+        // 3. Calculate what the scale SHOULD be to keep your UI looking the same
+        // We divide physical pixels by base_width to see how many "points" we need
+        let target_scale = (physical_width / base_width);
+
+        // 4. Set the scale absolutely
+        ctx.set_pixels_per_point(target_scale);
 
         self.ensure_cover_loaded(&ctx, false);
         show_config_window(self, ctx, accent);
@@ -43,51 +52,65 @@ impl eframe::App for PlayerApp {
             ui.horizontal(|ui| {
                 show_cover(ui, self);
                 ui.vertical(|ui| {
+                    // ui.horizontal(|ui| {
+                    //     ui.vertical(|ui| {
+                    //         ui.horizontal(|ui| {
+                    //             let plugins = self.player.plugins_info();
+                    //             let plugins = plugins.lock().unwrap();
+                    //             let value1 = plugins.get_key_value("VU Meter");
+                    //             let value2 = plugins.get_key_value("RMS Meter");
+                    //             ui.vertical(|ui| {
+                    //                 if value1.is_some() {
+                    //                     draw_meter(ui, value1.unwrap().1.clone(), accent, text);
+                    //                     ui.label(format!("{:.1}", *value1.unwrap().1));
+                    //                 } else {
+                    //                     draw_meter(ui, 0.0, accent, text);
+                    //                     ui.label(format!("{:.1}", 0.0));
+                    //                 }
+                    //             });
+                    //             ui.vertical(|ui| {
+                    //                 if value2.is_some() {
+                    //                     draw_meter(ui, value2.unwrap().1.clone(), accent, text);
+                    //                     ui.label(format!("{:.1}", *value2.unwrap().1));
+                    //                 } else {
+                    //                     draw_meter(ui, 0.0, accent, text);
+                    //                     ui.label(format!("{:.1}", 0.0));
+                    //                 }
+                    //             });
+                    //         });
+                    //     });
+                    // });
+                    show_buttons_and_title(ui, ctx, self, self.text_color.clone(), accent);
                     ui.horizontal(|ui| {
+                        // 1. EQ on the far left
+                        show_eq_controls(ui, self, accent, self.text_color);
+
+                        // 2. Everything else in a vertical column to the right
                         ui.vertical(|ui| {
-                            // ui.horizontal(|ui| {
-                            //     let plugins = self.player.plugins_info();
-                            //     let plugins = plugins.lock().unwrap();
-                            //     let value1 = plugins.get_key_value("VU Meter");
-                            //     let value2 = plugins.get_key_value("RMS Meter");
-                            //     ui.vertical(|ui| {
-                            //         if value1.is_some() {
-                            //             draw_meter(ui, value1.unwrap().1.clone(), accent, text);
-                            //             ui.label(format!("{:.1}", *value1.unwrap().1));
-                            //         } else {
-                            //             draw_meter(ui, 0.0, accent, text);
-                            //             ui.label(format!("{:.1}", 0.0));
-                            //         }
-                            //     });
-                            //     ui.vertical(|ui| {
-                            //         if value2.is_some() {
-                            //             draw_meter(ui, value2.unwrap().1.clone(), accent, text);
-                            //             ui.label(format!("{:.1}", *value2.unwrap().1));
-                            //         } else {
-                            //             draw_meter(ui, 0.0, accent, text);
-                            //             ui.label(format!("{:.1}", 0.0));
-                            //         }
-                            //     });
-                            // });
-                            show_buttons_and_title(ui, ctx, self, self.text_color.clone(), accent);
-                            ui.vertical(|ui| {
-                                ui.horizontal(|ui| {
-                                    show_volume_bar(ui, self);
-                                    show_order_buttons(ui, self);
-                                });
-                                show_search_and_miniplaylist(ui, self, accent);
+                            // Top row: Volume and Order
+                            ui.horizontal(|ui| {
+                                show_volume_bar(ui, self);
+                                show_order_buttons(ui, self, accent, self.text_color);
                             });
+
+                            // Middle row: Search
+                            show_search_and_miniplaylist(ui, self, accent);
+
+                            // Bottom row: The Visualizer
+                            // Force the visualizer to take up the remaining space
+                            let samples = &self.player.samples;
+                            let palette = &self.palette_sorted;
+
+                            // Wrap in a sized UI if it's still disappearing
+                            self.visualizer.draw_spectrum(
+                                ui,
+                                samples,
+                                palette[0][0],
+                                palette[0][1],
+                                palette[0][2],
+                            );
                         });
                     });
-                    let samples = &self.player.samples;
-                    let palette = &self.palette_sorted;
-                    self.visualizer.draw_spectrum(
-                        ui,
-                        &samples,
-                        palette[0][0],
-                        palette[0][1],
-                        palette[0][2],
-                    );
                 });
             });
             ui.horizontal(|ui| {

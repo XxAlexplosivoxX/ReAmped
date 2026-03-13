@@ -21,5 +21,8 @@ pub enum PlayerCommand {
     ReloadCurrent,
     AleatoryFullRandom,
     SortBy(Options),
-    GetPluginsData
+    GetPluginsData,
+    SetGainBass(f32),
+    SetGainMid(f32),
+    SetGainHigh(f32)
 }

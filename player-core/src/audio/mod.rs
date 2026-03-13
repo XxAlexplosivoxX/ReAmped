@@ -16,4 +16,7 @@ pub trait AudioBackend {
     fn position(&self) -> f32;
     fn samples(&self) -> SharedSamples;
     fn finished(&self) -> bool;
+    fn low_gain(&self, gain: f32);
+    fn mid_gain(&self, gain: f32);
+    fn high_gain(&self, gain: f32);
 }
