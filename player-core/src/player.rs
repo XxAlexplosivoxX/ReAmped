@@ -402,6 +402,10 @@ fn audio_loop(
                 PlayerCommand::SetGainHigh(gain) => {
                     backend.high_gain(gain);
                 }
+
+                PlayerCommand::SetExpanderWidth(width) => {
+                    backend.set_expander_width(width);
+                }
                 _ => {}
             },
 

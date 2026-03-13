@@ -36,7 +36,7 @@ use crate::{
     audio::plugins_chain::PluginChain,
     builtin_plugins::{meter_lufs::LufsMeter, meter_rms::RmsMeter, meter_vu::VuMeter},
     config::load_config,
-    dsp::mini_eq::{TripleBandEq},
+    dsp::{mini_eq::TripleBandEq, xpander::Expander},
 };
 
 use ringbuf::RingBuffer;
@@ -55,6 +55,7 @@ pub struct SymphoniaBackend {
     low_gain: Arc<AtomicU32>,
     mid_gain: Arc<AtomicU32>,
     high_gain: Arc<AtomicU32>,
+    expander_width: Arc<AtomicU32>,
 }
 
 impl SymphoniaBackend {
@@ -73,6 +74,7 @@ impl SymphoniaBackend {
             low_gain: Arc::new(AtomicU32::new(100)),
             mid_gain: Arc::new(AtomicU32::new(100)),
             high_gain: Arc::new(AtomicU32::new(100)),
+            expander_width: Arc::new(AtomicU32::new(100)),
         }
     }
 
@@ -229,37 +231,48 @@ impl SymphoniaBackend {
         // ================= CPAL STREAM (output and now DSP processing) =================
         let mut eq_l = TripleBandEq::new();
         let mut eq_r = TripleBandEq::new();
+        let mut expander_stereo = Expander::new();
+        
         let low_g = self.low_gain.clone();
         let mid_g = self.mid_gain.clone();
         let high_g = self.high_gain.clone();
+        let width = self.expander_width.clone();
         let stream = device
-            .build_output_stream(
-                &config,
-                move |out: &mut [f32], _| {
+        .build_output_stream(
+            &config,
+            move |out: &mut [f32], _| {
+                    let mut viz = samples_viz.lock().unwrap();
                     let vol = volume.load(Ordering::Relaxed) as f32 / 100.0;
                     let g_l = low_g.load(Ordering::Relaxed) as f32 / 100.0;
                     let g_m = mid_g.load(Ordering::Relaxed) as f32 / 100.0;
                     let g_h = high_g.load(Ordering::Relaxed) as f32 / 100.0;
+                    expander_stereo.set_width(width.load(Ordering::Relaxed) as f32 / 100.0);
 
                     eq_l.update_all(g_l, g_m, g_h, output_sr as f32);
                     eq_r.update_all(g_l, g_m, g_h, output_sr as f32);
+                    // Create a temporary vector to hold samples for this block
+                    let mut temp_samples = Vec::with_capacity(out.len());
+
                     for frame in out.chunks_mut(2) {
                         if !playing.load(Ordering::Relaxed) {
                             frame.fill(0.0);
                             continue;
                         }
+                        if let (Some(s_l), Some(s_r)) = (consumer.pop(), consumer.pop()) {
+                            let eq_l_out = eq_l.process(s_l);
+                            let eq_r_out = eq_r.process(s_r);
 
-                        // Left Channel
-                        if let Some(mut s_l) = consumer.pop() {
-                            s_l = eq_l.process(s_l); // APPLY EQ
-                            frame[0] = s_l * vol;
-                            samples_viz.lock().unwrap().push(frame[0]);
-                        }
+                            let (final_l, final_r) =
+                                expander_stereo.process_stereo_width(eq_l_out, eq_r_out);
 
-                        // Right Channel
-                        if let Some(mut s_r) = consumer.pop() {
-                            s_r = eq_r.process(s_r); // APPLY EQ
-                            frame[1] = s_r * vol;
+                            frame[0] = final_l * vol;
+                            frame[1] = final_r * vol;
+
+                            // Push to local vec instead of locking
+                            viz.push(frame[0]);
+                            viz.push(frame[1]);
+                            temp_samples.push(frame[0]);
+                            temp_samples.push(frame[1]);
                         }
                     }
                 },
@@ -345,5 +358,10 @@ impl AudioBackend for SymphoniaBackend {
     fn high_gain(&self, gain: f32) {
         self.high_gain
             .store((gain * 100.0) as u32, Ordering::SeqCst);
+    }
+
+    fn set_expander_width(&self, width: f32) {
+        self.expander_width
+            .store((width * 100.0) as u32, Ordering::SeqCst);
     }
 }

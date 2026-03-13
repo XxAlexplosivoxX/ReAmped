@@ -3,7 +3,7 @@ use egui::{Color32, RichText, Sense, Stroke, Ui, Vec2};
 use player_core::PlayerCommand;
 use std::f32::consts::PI;
 
-pub fn show_eq_controls(ui: &mut Ui, app: &mut PlayerApp, _accent: Color32, text: Color32) {
+pub fn show_eq_controls(ui: &mut Ui, player: &mut PlayerApp, _accent: Color32, text: Color32) {
     // 1. Define exactly how wide this whole EQ block should be
     // 60-70 pixels is usually enough for 3 mini knobs
     ui.allocate_ui(Vec2::new(23.0, 120.0), |ui| {
@@ -14,20 +14,34 @@ pub fn show_eq_controls(ui: &mut Ui, app: &mut PlayerApp, _accent: Color32, text
                 .inner_margin(egui::Margin::same(0)) // Tight margin inside the border
                 .show(ui, |ui| {
                     ui.add_space(7.5);
-                    if draw_real_knob(ui, "H", &mut app.high_val, text).changed() {
-                        app.player.send(PlayerCommand::SetGainHigh(app.high_val));
+                    if draw_real_knob(ui, "H", &mut player.high_val, text).changed() {
+                        player
+                            .player
+                            .send(PlayerCommand::SetGainHigh(player.high_val));
                     }
-                    if draw_real_knob(ui, "M", &mut app.mid_val, text).changed() {
-                        app.player.send(PlayerCommand::SetGainMid(app.mid_val));
+                    if draw_real_knob(ui, "M", &mut player.mid_val, text).changed() {
+                        player
+                            .player
+                            .send(PlayerCommand::SetGainMid(player.mid_val));
                     }
-                    if draw_real_knob(ui, "B", &mut app.bass_val, text).changed() {
-                        app.player.send(PlayerCommand::SetGainBass(app.bass_val));
+                    if draw_real_knob(ui, "B", &mut player.bass_val, text).changed() {
+                        player
+                            .player
+                            .send(PlayerCommand::SetGainBass(player.bass_val));
                     }
                     // ui.horizontal_centered(|ui| {
                     // });
                 });
         });
     });
+}
+
+pub fn show_expander_knob(ui: &mut Ui, player: &mut PlayerApp, color: Color32) {
+    if draw_real_knob(ui, "EX", &mut player.width_val, color).changed() {
+        player
+            .player
+            .send(PlayerCommand::SetExpanderWidth(player.width_val));
+    }
 }
 
 fn draw_real_knob(ui: &mut Ui, label: &str, value: &mut f32, accent: Color32) -> egui::Response {
@@ -38,7 +52,8 @@ fn draw_real_knob(ui: &mut Ui, label: &str, value: &mut f32, accent: Color32) ->
 
             // Center the knob manually
             let desired_size = Vec2::splat(15.0);
-            let (rect, mut response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
+            let (rect, mut response) =
+                ui.allocate_exact_size(desired_size, Sense::click_and_drag());
 
             if response.dragged() {
                 let delta = response.drag_delta().y * 0.05;

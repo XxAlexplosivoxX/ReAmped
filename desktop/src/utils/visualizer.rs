@@ -279,8 +279,8 @@ impl SpectrumVisualizer {
         let dt = ui.input(|i| i.unstable_dt);
         let target_speed = self.stripes.base_speed * self.stripes.intensity;
 
-        self.stripes.current_speed = egui::lerp(self.stripes.current_speed..=target_speed, 0.5);
-        
+        self.stripes.current_speed = egui::lerp(self.stripes.current_speed..=target_speed, 1.0);
+
         if self.stripes.current_speed > 0.0 {
             self.stripes.offset += self.stripes.current_speed * dt;
         }
@@ -334,7 +334,6 @@ impl SpectrumVisualizer {
             pos += stripe_w;
             i += 1;
         }
-
         painter.add(Shape::mesh(mesh));
     }
 }

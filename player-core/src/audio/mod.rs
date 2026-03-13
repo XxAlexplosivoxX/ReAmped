@@ -19,4 +19,5 @@ pub trait AudioBackend {
     fn low_gain(&self, gain: f32);
     fn mid_gain(&self, gain: f32);
     fn high_gain(&self, gain: f32);
+    fn set_expander_width(&self, gain: f32);
 }

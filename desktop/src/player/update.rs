@@ -2,7 +2,7 @@ use egui::{Color32, style::HandleShape};
 use player_core::{PlayerCommand, viz::waveform::waveform};
 
 use crate::{
-    dsp_ui::mini_eq::show_eq_controls,
+    dsp_ui::mini_eq_expander::{show_eq_controls, show_expander_knob},
     player::player_app_init::PlayerApp,
     ui_elements::{
         buttons::show_buttons_and_title, config_window::show_config_window, cover_view::show_cover,
@@ -20,9 +20,6 @@ impl eframe::App for PlayerApp {
         let accent = panel.clone();
         let accent = accent.gamma_multiply(1.2);
         let text = Color32::from_rgb(palette[0][0], palette[0][1], palette[0][2]);
-
-        let base_width: f32 = 532.0;
-
         // 1. Get physical width from the viewport
         let physical_width = ctx.input(|i| i.viewport_rect().width() * i.pixels_per_point());
 
@@ -31,7 +28,7 @@ impl eframe::App for PlayerApp {
 
         // 3. Calculate what the scale SHOULD be to keep your UI looking the same
         // We divide physical pixels by base_width to see how many "points" we need
-        let target_scale = (physical_width / base_width);
+        let target_scale = physical_width / base_width;
 
         // 4. Set the scale absolutely
         ctx.set_pixels_per_point(target_scale);
@@ -91,6 +88,7 @@ impl eframe::App for PlayerApp {
                             ui.horizontal(|ui| {
                                 show_volume_bar(ui, self);
                                 show_order_buttons(ui, self, accent, self.text_color);
+                                show_expander_knob(ui, self, self.text_color);
                             });
 
                             // Middle row: Search

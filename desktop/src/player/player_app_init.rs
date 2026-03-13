@@ -34,6 +34,7 @@ pub struct PlayerApp {
     pub bass_val: f32,
     pub mid_val: f32,
     pub high_val: f32,
+    pub width_val: f32
 }
 
 impl Default for PlayerApp {
@@ -77,6 +78,7 @@ impl Default for PlayerApp {
             bass_val: 1.0, 
             mid_val: 1.0, 
             high_val: 1.0, 
+            width_val: 1.0
         }
     }
 }

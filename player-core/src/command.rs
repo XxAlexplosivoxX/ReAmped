@@ -24,5 +24,6 @@ pub enum PlayerCommand {
     GetPluginsData,
     SetGainBass(f32),
     SetGainMid(f32),
-    SetGainHigh(f32)
+    SetGainHigh(f32),
+    SetExpanderWidth(f32)
 }

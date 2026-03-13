@@ -1,1 +1,1 @@
-pub mod mini_eq;
+pub mod mini_eq_expander;
